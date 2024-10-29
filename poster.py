@@ -46,7 +46,7 @@ def create_poster(apply_gradient=False):
     font_cta = ImageFont.truetype(r"assets/VCR_OSD_MONO_1.001[1].ttf", 70)
 
     title_text = "Apple Orchard Cup"
-    event_info = "November 16, 2024 - 9:00 PM UTC"
+    event_info = "November 16, 2024 - 10:00 PM UTC"
     cta_info = "Sign up now at appleorchardcup.com"
 
     # Create a very subtle gradient overlay if apply_gradient is True

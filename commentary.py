@@ -7,6 +7,7 @@ from matplotlib.font_manager import FontProperties
 from matplotlib import patheffects
 import os
 import requests
+import json
 
 # Load VCR_OSD_MONO font
 vcr_font = FontProperties(fname=r"assets/VCR_OSD_MONO_1.001[1].ttf")
@@ -74,7 +75,18 @@ def add_social_icon_and_text(ax, logo_path, username, position, avatar_left_posi
             fontproperties=vcr_font,
             bbox=dict(facecolor=box_facecolor, edgecolor='#7D9D7D', boxstyle='round,pad=0.4', alpha=0.85))
 
-# Function to add a boxed username at the bottom of the avatar
+def add_text_with_glow(ax, text, position, fontsize=48, color='#333333', glow_color='#AAAAAA', shadow_color='#222222'):
+    clean_txt = clean_text(text, vcr_font)
+    
+    ax.text(position[0], position[1], clean_txt, fontsize=fontsize, fontweight='bold',
+            ha='center', va='center', color=glow_color, transform=ax.transAxes,
+            fontproperties=vcr_font,
+            path_effects=[patheffects.withStroke(linewidth=4, foreground=shadow_color)])
+    
+    ax.text(position[0], position[1], clean_txt, fontsize=fontsize, fontweight='bold',
+            ha='center', va='center', color=color, transform=ax.transAxes,
+            fontproperties=vcr_font)
+
 def add_username_with_box(ax, username, position, fontsize=34, color='#333333', glow_color='#AAAAAA', shadow_color='#222222', box_facecolor='#FFECB3'):
     clean_txt = clean_text(username, vcr_font)
     
@@ -83,19 +95,6 @@ def add_username_with_box(ax, username, position, fontsize=34, color='#333333', 
             fontproperties=vcr_font,
             path_effects=[patheffects.withStroke(linewidth=4, foreground=shadow_color)],
             bbox=dict(facecolor=box_facecolor, edgecolor='none', boxstyle='round,pad=0.5', alpha=0.85))
-    
-    ax.text(position[0], position[1], clean_txt, fontsize=fontsize, fontweight='bold',
-            ha='center', va='center', color=color, transform=ax.transAxes,
-            fontproperties=vcr_font)
-
-# Function to add glow effect to text without a box around it
-def add_text_with_glow(ax, text, position, fontsize=48, color='#333333', glow_color='#AAAAAA', shadow_color='#222222'):
-    clean_txt = clean_text(text, vcr_font)
-    
-    ax.text(position[0], position[1], clean_txt, fontsize=fontsize, fontweight='bold',
-            ha='center', va='center', color=glow_color, transform=ax.transAxes,
-            fontproperties=vcr_font,
-            path_effects=[patheffects.withStroke(linewidth=4, foreground=shadow_color)])
     
     ax.text(position[0], position[1], clean_txt, fontsize=fontsize, fontweight='bold',
             ha='center', va='center', color=color, transform=ax.transAxes,
@@ -136,7 +135,12 @@ def add_logo(ax, logo_path):
     ab = AnnotationBbox(imagebox, (0.97, 0.92), frameon=False, xycoords='axes fraction')
     ax.add_artist(ab)
 
-def create_commentary_scene(user_ids, logo_path, gif_path, tournament_title="COMMENTATORS"):
+def create_commentary_scene(logo_path, gif_path, tournament_title="COMMENTATORS"):
+    # Load user IDs from commentary_data.json
+    with open('commentary_data.json', 'r') as f:
+        data = json.load(f)
+    user_ids = [commentator["user_id"] for commentator in data.get("commentators", [])]
+
     gif = Image.open(gif_path)
     static_background = gif.convert("RGBA")
 
@@ -179,7 +183,6 @@ def create_commentary_scene(user_ids, logo_path, gif_path, tournament_title="COM
             socials = []
             username = f"USER{i+1}"
 
-        # Add the username with a box below the avatar
         add_username_with_box(ax, username, (positions[i][0], 0.43), fontsize=34, color='#333333')
 
         social_box_background = '#A2D9A2'
@@ -193,8 +196,7 @@ def create_commentary_scene(user_ids, logo_path, gif_path, tournament_title="COM
     plt.savefig(output_image_path, bbox_inches='tight', pad_inches=0)
     plt.close(fig)
 
-user_ids = ["5ec684620cfca96246aa9bda", "5f3718f11fee2b2e8c27d55f"]
 logo_path = 'assets/tournament_logo.png'
 gif_path = 'assets/bg.gif'
 
-create_commentary_scene(user_ids, logo_path, gif_path)
+create_commentary_scene(logo_path, gif_path)

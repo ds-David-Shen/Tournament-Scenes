@@ -45,7 +45,7 @@ def load_player_data(json_file):
         return json.load(file)
 
 # Load the player data from players_data.json
-players_data = load_player_data('players_data.json')
+players_data = load_player_data('bracket_data.json')
 
 # Load the tournament logo
 logo_path = 'assets/tournament_logo.png'

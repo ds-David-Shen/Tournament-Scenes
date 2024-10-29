@@ -1,3 +1,4 @@
+import json
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageSequence
 from player_cards import create_player_card  # Import your refactored function
 
@@ -18,8 +19,14 @@ def add_glow(base_image, text, position, font, glow_color, glow_strength=5):
     # Overlay the glow image onto the base image
     base_image.paste(glow_image, (0, 0), glow_image)
 
+# Function to load versus data from JSON
+def load_versus_data(file_path="versus_data.json"):
+    with open(file_path, "r") as f:
+        data = json.load(f)
+    return data
+
 # Function to create the versus screen for each frame of the animated GIF
-def create_versus_screen(user1_id, seed1, user2_id, seed2, flavour_text1, flavour_text2):
+def create_versus_screen(data):
     # Open the animated background GIF
     background_gif = Image.open("assets/bg.gif")
     
@@ -28,9 +35,13 @@ def create_versus_screen(user1_id, seed1, user2_id, seed2, flavour_text1, flavou
     
     margin = 20  # Margin to leave space between cards and edges
 
+    # Extract player data
+    player1 = data["player1"]
+    player2 = data["player2"]
+
     # Generate the player cards using the create_player_card function
-    card1 = create_player_card(user1_id, seed1, flavour_text1)
-    card2 = create_player_card(user2_id, seed2, flavour_text2)
+    card1 = create_player_card(player1["user_id"], player1["seed"], player1["flavour_text"])
+    card2 = create_player_card(player2["user_id"], player2["seed"], player2["flavour_text"])
 
     # Resize the cards to match the height of the screen (1080)
     new_height = background_gif.height
@@ -94,14 +105,8 @@ def create_versus_screen(user1_id, seed1, user2_id, seed2, flavour_text1, flavou
     frames[0].save('scenes/versus_screen.gif', save_all=True, append_images=frames[1:], duration=background_gif.info['duration'], loop=0)
 
 if __name__ == "__main__":
-    # User IDs and seeds for both players
-    user1_id = "5ec684620cfca96246aa9bda"  # Replace with actual user1 ID
-    seed1 = 1
-    flavour_text_1 = "[EX] Skill: testwidthaaaaa"
-
-    user2_id = "5f3718f11fee2b2e8c27d55f"  # Replace with actual user2 ID
-    seed2 = 8
-    flavour_text_2 = "[EX] Ability: 6-3"
+    # Load data from JSON file
+    data = load_versus_data()
 
     # Create the versus screen
-    create_versus_screen(user1_id, seed1, user2_id, seed2, flavour_text_1, flavour_text_2)
+    create_versus_screen(data)

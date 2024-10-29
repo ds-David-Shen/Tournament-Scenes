@@ -5,12 +5,9 @@ This project generates stunning tournament scene visualizations for the prestigi
 
 ## Setup
 
-### Clone the Repository
-```bash
-git clone https://github.com/ds-David-Shen/Tournament-Scenes.git
-```
-
 ### Install Dependencies
+Install the required dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```

@@ -1,3 +1,4 @@
+import json
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib import patheffects
@@ -6,11 +7,11 @@ from PIL import Image, ImageSequence
 from matplotlib import font_manager
 
 # Load the custom font
-font_path = 'assets/BubblegumSans-Regular.ttf'
-bubblegum_font = font_manager.FontProperties(fname=font_path)
+font_path = r'assets\VCR_OSD_MONO_1.001[1].ttf'
+custom_font = font_manager.FontProperties(fname=font_path)
 
 # Load the animated GIF and extract frames
-gif_path = 'assets/bg.gif'
+gif_path = 'assets/sky.gif'
 bg_gif = Image.open(gif_path)
 frames = [frame.copy() for frame in ImageSequence.Iterator(bg_gif)]
 
@@ -22,31 +23,33 @@ fig_height = gif_height / 100
 # Define vertical offset (-200 pixels converted to figure units)
 vertical_offset = -200 / 100  # Move the bracket down by 200 pixels
 
+# Add a global y_offset that will adjust the bracket's vertical position
+y_offset = -4  # Default is no offset. Change this value to shift the entire bracket up/down.
+
 # Custom path effect for shadow
 shadow = [patheffects.withSimplePatchShadow(offset=(1, -1), shadow_rgbFace='gray', alpha=0.3)]
 
-# Custom colors
-color_win = '#6c8cd5'  # Darker blue for winners bracket
-color_loss = '#ff6f61'  # Soft red for losers bracket
-color_text = '#ffffff'  # White text
-color_bg = '#343a40'  # Dark background for score and text rectangles
-line_color = '#000000'  # Set line color to black
-champ_color = '#ffdd57'  # Gold for the champion box
+# Updated colors with softer tones for readability
+color_win = '#FFCC66'  # Soft yellow
+color_loss = '#FFB84D'  # Darker muted yellow-orange
+color_text = '#FAFAD2'  # Light yellowish text for contrast
+color_bg = '#2c3e50'  # Soft gray for text and score boxes
+line_color = '#000000'  # Black lines for connection
 
-# **Player Names and Scores**
-players_data = {
-    "Winners Semi 1": {"player1": "Player A", "score1": 11, "player2": "Player B", "score2": 2},
-    "Winners Semi 2": {"player1": "Player C", "score1": 11, "player2": "Player D", "score2": 4},
-    "Winners Final": {"player1": "Player A", "score1": 11, "player2": "Player C", "score2": 6},
-    "Losers Top 8 Match 1": {"player1": "Player E", "score1": 4, "player2": "Player F", "score2": 11},
-    "Losers Top 8 Match 2": {"player1": "Player G", "score1": 6, "player2": "Player H", "score2": 11},
-    "Losers Quarter 1": {"player1": "Player D", "score1": 11, "player2": "Player F", "score2": 5},
-    "Losers Quarter 2": {"player1": "Player B", "score1": 11, "player2": "Player H", "score2": 5},
-    "Losers Semi": {"player1": "Player D", "score1": 11, "player2": "Player B", "score2": 5},
-    "Losers Final": {"player1": "Player C", "score1": 11, "player2": "Player D", "score2": 5},
-    "Grand Final": {"player1": "Player A", "score1": 11, "player2": "Player C", "score2": 0},
-    "True Final": {"player1": "Player A", "score1": 99, "player2": "Player C", "score2": 0}
-}
+# Shadow effect for text readability
+text_shadow = [patheffects.withStroke(linewidth=1, foreground="gray")]
+
+# Load player data from JSON file
+def load_player_data(json_file):
+    with open(json_file, 'r') as file:
+        return json.load(file)
+
+# Load the player data from players_data.json
+players_data = load_player_data('players_data.json')
+
+# Load the tournament logo
+logo_path = 'assets/tournament_logo.png'
+tournament_logo = Image.open(logo_path)
 
 # Create the figure and axes for the plot
 fig, ax = plt.subplots(figsize=(fig_width, fig_height))
@@ -63,26 +66,26 @@ def draw_match(x, y, match_key, color1, color2, label=None, size_factor=1):
     box2.set_path_effects(shadow)
 
     # Add text for players using custom font
-    ax.text(x + 0.1, y + box_height / 2, f"{player1}", verticalalignment='center', fontsize=12 * size_factor, fontweight='bold', color=color_text, fontproperties=bubblegum_font)
-    ax.text(x + 0.1, y - box_height / 2, f"{player2}", verticalalignment='center', fontsize=12 * size_factor, fontweight='bold', color=color_text, fontproperties=bubblegum_font)
+    ax.text(x + 0.1, y + box_height / 2, f"{player1}", verticalalignment='center', fontsize=12 * size_factor, fontweight='bold', color=color_text, fontproperties=custom_font, path_effects=text_shadow)
+    ax.text(x + 0.1, y - box_height / 2, f"{player2}", verticalalignment='center', fontsize=12 * size_factor, fontweight='bold', color=color_text, fontproperties=custom_font, path_effects=text_shadow)
 
-    # Move score boxes adjacent to the player rectangles, aligning them
+    # Move score boxes adjacent to the player rectangles, aligning them with the same height
     score_box_x = x + 2 * size_factor
-    score_box_height = 0.3 * size_factor
-    ax.add_patch(Rectangle((score_box_x, y + box_height / 2 - score_box_height / 2), 0.5 * size_factor, score_box_height, edgecolor='black', facecolor=color_bg))
-    ax.add_patch(Rectangle((score_box_x, y - box_height / 2 - score_box_height / 2), 0.5 * size_factor, score_box_height, edgecolor='black', facecolor=color_bg))
-    ax.text(score_box_x + 0.25 * size_factor, y + box_height / 2, f"{score1}", verticalalignment='center', fontsize=12 * size_factor, horizontalalignment='center', fontweight='bold', color=color_text, fontproperties=bubblegum_font)
-    ax.text(score_box_x + 0.25 * size_factor, y - box_height / 2, f"{score2}", verticalalignment='center', fontsize=12 * size_factor, horizontalalignment='center', fontweight='bold', color=color_text, fontproperties=bubblegum_font)
+    score_box_height = box_height  # Match the player box height
+    ax.add_patch(Rectangle((score_box_x, y), 0.5 * size_factor, score_box_height, edgecolor='black', facecolor=color_bg))
+    ax.add_patch(Rectangle((score_box_x, y - box_height), 0.5 * size_factor, score_box_height, edgecolor='black', facecolor=color_bg))
+    ax.text(score_box_x + 0.25 * size_factor, y + box_height / 2, f"{score1}", verticalalignment='center', fontsize=12 * size_factor, horizontalalignment='center', fontweight='bold', color=color_text, fontproperties=custom_font, path_effects=text_shadow)
+    ax.text(score_box_x + 0.25 * size_factor, y - box_height / 2, f"{score2}", verticalalignment='center', fontsize=12 * size_factor, horizontalalignment='center', fontweight='bold', color=color_text, fontproperties=custom_font, path_effects=text_shadow)
 
     if label:
         label_box_x = x
         ax.add_patch(Rectangle((label_box_x, y + box_height + 0.05), 2.5 * size_factor, 0.4 * size_factor, edgecolor='black', facecolor=color_bg))
-        ax.text(label_box_x + 1.25 * size_factor, y + box_height + 0.25, label, verticalalignment='center', horizontalalignment='center', fontsize=12 * size_factor, fontweight='bold', color=color_text, fontproperties=bubblegum_font)
+        ax.text(label_box_x + 1.25 * size_factor, y + box_height + 0.25, label, verticalalignment='center', horizontalalignment='center', fontsize=12 * size_factor, fontweight='bold', color=color_text, fontproperties=custom_font, path_effects=text_shadow)
 
     return score_box_x + 0.6 * size_factor
 
 def draw_line(x1, y1, x2, y2, x_mid=None):
-    line_style = {'color': line_color, 'linewidth': 1.5}  # Black connecting lines
+    line_style = {'color': line_color, 'linewidth': 2.5}  # Increased linewidth for thicker lines
     line_len = 0.3
     x1 += 0.2
     x2 -= 4
@@ -101,9 +104,13 @@ def draw_bracket(frame_index):
     ax.set_xlim(0, fig_width)
     ax.set_ylim(0, fig_height)
 
-    # Increase spacing between elements and apply vertical offset
+    # Display the tournament logo in the top-right corner
+    logo_size = 2  # Adjust this value for logo size
+    ax.imshow(tournament_logo, aspect='equal', extent=[fig_width - logo_size, fig_width, fig_height - logo_size, fig_height], zorder=1)
+
+    # Increase spacing between elements and apply vertical offset + y_offset
     x_positions = [1, 5.5, 10, 14.5]
-    y_positions = [8 - vertical_offset, 6.5 - vertical_offset, 5 - vertical_offset, 3.5 - vertical_offset, 2 - vertical_offset]
+    y_positions = [8 - vertical_offset + y_offset, 6.5 - vertical_offset + y_offset, 5 - vertical_offset + y_offset, 3.5 - vertical_offset + y_offset, 2 - vertical_offset + y_offset]
 
     # Winners bracket
     end_score_x1 = draw_match(x_positions[0], y_positions[0], "Winners Semi 1", color_win, color_win, "Winners Semi", size_factor=0.9)
@@ -135,17 +142,22 @@ def draw_bracket(frame_index):
     draw_line(end_score_ls, (y_positions[2] + y_positions[3]) / 2, end_score_lf, (y_positions[2] + y_positions[3]) / 2, x_mid=(end_score_ls + end_score_lf) / 2)
     draw_line(end_score_final, (y_positions[0] + y_positions[1]) / 2, end_score_gf, (y_positions[0] + y_positions[1]) / 2, x_mid=(end_score_final + end_score_gf) / 2)
 
-    champ_box = ax.add_patch(Rectangle((x_positions[3], y_positions[-1]), 2, 1, facecolor=champ_color, edgecolor='black'))
-    champ_box.set_path_effects(shadow)
-    ax.text(x_positions[3] + 1, y_positions[-1] + 0.5, "CHAMPION", verticalalignment='center', fontsize=14, fontweight='bold', horizontalalignment='center', color=color_text, fontproperties=bubblegum_font)
-
     ax.axis('off')
 
 # Set up animation: update the frame of the GIF in a loop
 ani = FuncAnimation(fig, draw_bracket, frames=len(frames), interval=100, repeat=True)
 
 # Save the animation as a GIF
-ani.save('scenes/bracket_scene.gif', writer='imagemagick')
+gif_output_path = 'scenes/bracket_scene.gif'
+ani.save(gif_output_path, writer='imagemagick')
 
-# Show the animated plot (optional)
-plt.show()
+# Function to crop the gif based on the provided dimensions
+def crop_gif(gif_path, left, top, right, bottom, output_path):
+    with Image.open(gif_path) as img:
+        frames = [frame.copy() for frame in ImageSequence.Iterator(img)]
+        crop_box = (left, top, img.width - right, img.height - bottom)
+        cropped_frames = [frame.crop(crop_box) for frame in frames]
+        cropped_frames[0].save(output_path, save_all=True, append_images=cropped_frames[1:], loop=0)
+
+# Apply the crop based on your provided values (240, 103, 192, 95)
+crop_gif(gif_output_path, left=240, top=103, right=192, bottom=95, output_path=gif_output_path)

@@ -1,14 +1,13 @@
 # Tournament Scenes
 
 ## Description
-This project generates tournament scene visualizations using Python (`matplotlib`, `Pillow`). It includes customizable player cards, brackets, and commentary scenes.
+This project generates stunning tournament scene visualizations for the prestigious TETR.IO tournament, **Apple Orchard Cup**. Using Python (`matplotlib`, `Pillow`), it includes customizable player cards, brackets, and commentary scenes to enhance the viewing experience.
 
 ## Setup
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/yourusername/Tournament-Scenes.git
-cd Tournament-Scenes
+git clone https://github.com/ds-David-Shen/Tournament-Scenes.git
 ```
 
 ### Install Dependencies
@@ -20,30 +19,25 @@ pip install -r requirements.txt
 
 ### Generate Scenes
 - **Bracket Scene**: Generate using `bracket.py`, which creates `scenes/bracket_scene.gif`.
-    - Player data is in the player data section of `bracket.py`.
+    - Edit `players_data.json` to change the player names and scores.
 
 ```bash
 python bracket.py
 ```
+![Bracket Scene](scenes/bracket_scene.gif)
 
 - **Versus Screen**: Generate using `versus.py`, which creates `scenes/versus_screen.gif`.
-    - Modify the user ID and seed for the two players.
+    - Modify the user ID, seed, and flavour text for the two players.
 
 ```bash
 python versus.py
 ```
+![Versus Screen](scenes/versus_screen.gif)
 
-- **Commentary Scene**: Generate using `commentary.py`, which creates `scenes/commentary_scene.gif`.
+- **Commentary Scene**: Generate using `commentary.py`, which creates `scenes/commentary_scene.png`.
     - Modify the user IDs for the two commentators.
 
 ```bash
 python commentary.py
 ```
-
-## Project Structure
-- `player_cards.py`: Player card generation.
-- `bracket.py`: Tournament brackets.
-- `versus.py`: Versus screen generation.
-- `commentary.py`: Commentary scenes.
-- `scenes/`: Contains generated GIFs (bracket_scene.gif, versus_screen.gif, commentary_scene.gif).
-- `assets/`: Contains images (avatars, backgrounds, etc.).
+![Commentary Scene](scenes/commentary_scene.png)

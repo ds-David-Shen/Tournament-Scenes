@@ -19,31 +19,38 @@ def add_glow(base_image, text, position, font, glow_color, glow_strength=5):
     base_image.paste(glow_image, (0, 0), glow_image)
 
 # Function to create the versus screen for each frame of the animated GIF
-def create_versus_screen(user1_id, seed1, user2_id, seed2):
+def create_versus_screen(user1_id, seed1, user2_id, seed2, flavour_text1, flavour_text2):
     # Open the animated background GIF
     background_gif = Image.open("assets/bg.gif")
     
     # Initialize a list to store all the frames
     frames = []
+    
+    margin = 20  # Margin to leave space between cards and edges
 
     # Generate the player cards using the create_player_card function
-    card1 = create_player_card(user1_id, seed1)
-    card2 = create_player_card(user2_id, seed2)
+    card1 = create_player_card(user1_id, seed1, flavour_text1)
+    card2 = create_player_card(user2_id, seed2, flavour_text2)
 
     # Resize the cards to match the height of the screen (1080)
     new_height = background_gif.height
-    card1 = card1.resize((background_gif.width // 3, new_height))  # Cards will take up 1/3 of the width
-    card2 = card2.resize((background_gif.width // 3, new_height))
+    card1 = card1.resize((background_gif.width // 3, new_height - 2 * margin))  # Cards will take up 1/3 of the width
+    card2 = card2.resize((background_gif.width // 3, new_height - 2 * margin))
 
-    # Define positions for the player cards (left and right sides)
-    card1_x = 0  # Left side of the screen
-    card1_y = 0
-    card2_x = background_gif.width - card2.width  # Right side of the screen
-    card2_y = 0
+    # Define positions for the player cards (left and right sides, leaving margin)
+    card1_x = margin  # Left side of the screen with margin
+    card1_y = margin
+    card2_x = background_gif.width - card2.width - margin  # Right side with margin
+    card2_y = margin
 
     # Load the font for the VS text
-    font_vs = ImageFont.truetype("assets/BubblegumSans-Regular.ttf", 250)  # Increase font size and use the correct font
+    font_vs = ImageFont.truetype(r"assets/VCR_OSD_MONO_1.001[1].ttf", 450)  # Increase font size and use the correct font
     vs_text = "VS"
+
+    # Load and resize the logo
+    logo = Image.open("assets/tournament_logo.png").convert("RGBA")
+    logo_size = 350  # Increased logo size for better visibility
+    logo = logo.resize((logo_size, logo_size))
 
     # Process each frame of the background GIF
     for frame in ImageSequence.Iterator(background_gif):
@@ -62,7 +69,7 @@ def create_versus_screen(user1_id, seed1, user2_id, seed2):
         vs_width = vs_bbox[2] - vs_bbox[0]
         vs_height = vs_bbox[3] - vs_bbox[1]
         vs_x = (background_gif.width - vs_width) // 2
-        vs_y = (background_gif.height - vs_height) // 2
+        vs_y = (background_gif.height - vs_height) // 2 - 100  # Shift the VS text upwards slightly
 
         # Draw shadow for VS text
         draw.text((vs_x + 5, vs_y + 5), vs_text, fill=(0, 0, 0, 150), font=font_vs)  # Shadow offset by 5 pixels
@@ -72,6 +79,13 @@ def create_versus_screen(user1_id, seed1, user2_id, seed2):
 
         # Draw the actual VS text
         draw.text((vs_x, vs_y), vs_text, fill=(255, 255, 255), font=font_vs)
+
+        # Calculate position for the logo to align with the bottom of the player cards
+        logo_x = (background_gif.width - logo.width) // 2
+        logo_y = card1_y + card1.height - logo.height - margin  # Align the logo's bottom with the player cards' bottom
+
+        # Paste the logo onto the frame
+        frame.paste(logo, (logo_x, logo_y), logo)
 
         # Append the frame to the list
         frames.append(frame)
@@ -83,9 +97,11 @@ if __name__ == "__main__":
     # User IDs and seeds for both players
     user1_id = "5ec684620cfca96246aa9bda"  # Replace with actual user1 ID
     seed1 = 1
+    flavour_text_1 = "[EX] Skill: testwidthaaaaa"
 
     user2_id = "5f3718f11fee2b2e8c27d55f"  # Replace with actual user2 ID
     seed2 = 8
+    flavour_text_2 = "[EX] Ability: 6-3"
 
     # Create the versus screen
-    create_versus_screen(user1_id, seed1, user2_id, seed2)
+    create_versus_screen(user1_id, seed1, user2_id, seed2, flavour_text_1, flavour_text_2)

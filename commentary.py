@@ -1,213 +1,200 @@
-import requests
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Polygon
-from PIL import Image, ImageDraw, ImageEnhance
-from matplotlib.animation import FuncAnimation
-from matplotlib import patheffects
+from PIL import Image, ImageDraw, ImageFilter
 from io import BytesIO
 from matplotlib.font_manager import FontProperties
+from matplotlib import patheffects
 import os
+import requests
 
-# Load BubblegumSans font
-bubblegum_font = FontProperties(fname="assets/BubblegumSans-Regular.ttf")
+# Load VCR_OSD_MONO font
+vcr_font = FontProperties(fname=r"assets/VCR_OSD_MONO_1.001[1].ttf")
 
-# Base URL for fetching avatars with hardcoded revision 0
+def can_render_text(char, font):
+    fig, ax = plt.subplots()
+    text = ax.text(0.5, 0.5, char, fontproperties=font)
+    renderer = fig.canvas.get_renderer()
+    bbox = text.get_window_extent(renderer)
+    plt.close(fig)
+    return bbox.width > 0 and bbox.height > 0
+
+def clean_text(text, font):
+    return ''.join([char for char in text if can_render_text(char, font)])
+
 BASE_AVATAR_URL = "https://tetr.io/user-content/avatars/{USERID}.jpg?rv=0"
 
-# Function to fetch TETR.IO user data from the correct API
 def fetch_tetrio_user_data(user_id):
-    api_url = f"https://ch.tetr.io/api/users/{user_id}"  # Correct API endpoint
+    api_url = f"https://ch.tetr.io/api/users/{user_id}"
     response = requests.get(api_url)
     if response.status_code == 200 and response.json().get('success'):
         return response.json().get('data')
     return None
 
-# Function to extract avatar URL
 def get_avatar_url(user_data):
-    user_id = user_data['_id']  # Fetch user ID
-    return BASE_AVATAR_URL.format(USERID=user_id)  # Return the avatar URL with revision 0
+    user_id = user_data['_id']
+    return BASE_AVATAR_URL.format(USERID=user_id)
 
-# Function to extract all social connections or fallback, limit to 3
 def get_social_connections(user_data):
     connections = user_data.get('connections', {})
     social_list = []
-    
+
     if 'discord' in connections:
-        social_list.append(f"Discord: {connections['discord'].get('display_username')}")
+        social_list.append(('assets/discord_logo.png', f"{connections['discord'].get('display_username')}"))
     if 'twitch' in connections:
-        social_list.append(f"Twitch: {connections['twitch'].get('display_username')}")
+        social_list.append(('assets/twitch_logo.png', f"{connections['twitch'].get('display_username')}"))
     if 'twitter' in connections:
-        social_list.append(f"Twitter: {connections['twitter'].get('display_username')}")
-    if 'reddit' in connections:
-        social_list.append(f"Reddit: {connections['reddit'].get('display_username')}")
-    if 'youtube' in connections:
-        social_list.append(f"YouTube: {connections['youtube'].get('display_username')}")
-    if 'steam' in connections:
-        social_list.append(f"Steam: {connections['steam'].get('display_username')}")
-    
-    return social_list[:3]  # Limit to a maximum of 3 social connections
+        social_list.append(('assets/twitter_logo.png', f"{connections['twitter'].get('display_username')}"))
+    return social_list[:3]
 
-# Function to load GIF and return the frames as a list
-def load_gif_frames(gif_path):
-    gif = Image.open(gif_path)
-    frames = []
-    try:
-        while True:
-            frame = gif.copy().convert("RGBA")  # Ensure it is in RGBA format for transparency
-            frames.append(frame)
-            gif.seek(len(frames))  # Move to next frame
-    except EOFError:
-        pass  # End of GIF reached
-    return frames
+def add_social_icon_and_text(ax, logo_path, username, position, avatar_left_position, fontsize=24, icon_size=0.25, color='#333333', glow_color='#444444', shadow_color='#111111', box_facecolor='#FFD700'):
+    avatar_left_position -= 0.11  # Move the icons further to the left
 
-# Function to update the background frame
-def update_frame(frame_num, img, frames):
-    img.set_data(frames[frame_num])
+    logo_img = Image.open(logo_path).convert("RGBA")
+    logo_img = logo_img.resize((int(icon_size * 800), int(icon_size * 800)), Image.Resampling.LANCZOS)
+    imagebox = OffsetImage(logo_img, zoom=icon_size)
+    ab = AnnotationBbox(imagebox, (avatar_left_position, position[1]), frameon=False, xycoords='axes fraction')
 
-# Function to add text with shadow and use the BubblegumSans font
-def add_text_with_style(ax, text, position, fontsize=24, color='black', shadow_color='gray', box_facecolor=None):
-    if box_facecolor:
-        # Add rounded box with padding
-        ax.text(position[0], position[1], text, fontsize=fontsize, fontweight='bold',
-                ha='center', va='center', color=color, transform=ax.transAxes,
-                fontproperties=bubblegum_font,
-                bbox=dict(facecolor=box_facecolor, edgecolor='black', boxstyle='round,pad=0.6', alpha=0.85))
-    else:
-        # Add shadow effect
-        ax.text(position[0], position[1], text, fontsize=fontsize, fontweight='bold',
-                ha='center', va='center', color=shadow_color, transform=ax.transAxes,
-                fontproperties=bubblegum_font, 
-                path_effects=[patheffects.withStroke(linewidth=4, foreground=shadow_color)])
-        # Add primary text
-        ax.text(position[0], position[1], text, fontsize=fontsize, fontweight='bold',
-                ha='center', va='center', color=color, transform=ax.transAxes,
-                fontproperties=bubblegum_font)
-
-# Function to create diamond-shaped avatars with a larger border and thinner outline
-def diamond_avatar_with_border(img, size, border_thickness=5, outer_padding=20):
-    img = img.resize((size, size), Image.Resampling.LANCZOS)
-    
-    border_size = size + 2 * (border_thickness + outer_padding)  # Add padding for space around the border
-    border_img = Image.new('RGBA', (border_size, border_size), (0, 0, 0, 0))  # Larger image for the border
-    mask = Image.new('L', (size, size), 0)  # Mask only for the diamond size
-    draw = ImageDraw.Draw(mask)
-
-    # Draw the diamond shape on the mask
-    draw.polygon([(size // 2, 0), (size, size // 2), (size // 2, size), (0, size // 2)], fill=255)
-
-    # Paste the avatar onto the border image with proper spacing
-    border_img.paste(img, (outer_padding + border_thickness, outer_padding + border_thickness), mask=mask)
-    
-    # Draw the thinner black border with more space
-    draw = ImageDraw.Draw(border_img)
-    draw.polygon([(border_size // 2, outer_padding),
-                  (border_size - outer_padding, border_size // 2),
-                  (border_size // 2, border_size - outer_padding),
-                  (outer_padding, border_size // 2)], outline="black", width=border_thickness)
-
-    return border_img
-
-# Function to dynamically create the commentary scene with animated GIF background
-def create_commentary_scene(user_ids, logo_path, gif_path, tournament_title="COMMENTATORS"):
-    # Load the GIF frames
-    gif_frames = load_gif_frames(gif_path)
-    frame_count = len(gif_frames)
-
-    # Set figure size to match the GIF dimensions (width x height)
-    fig_width = 19.2  # Example width for 1920px
-    fig_height = 10.8  # Example height for 1080px
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))  # Set size for 1920x1080 screen
-
-    # Set limits to match the dimensions of the background
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_aspect('equal')  # Maintain the aspect ratio
-    ax.axis('off')  # Hide the axes
-
-    # Initialize the first frame of the GIF
-    img = ax.imshow(gif_frames[0], extent=[0, 1, 0, 1], aspect='auto')
-
-    # Subtle shadow border around the entire commentator section
-    ax.add_patch(Polygon([[0.05, 0.05], [0.95, 0.05], [0.95, 0.85], [0.05, 0.85]],
-                         closed=True, fill=False, edgecolor='lightgray', linewidth=3))
-
-    # Add the tournament logo with reduced saturation
-    logo = Image.open(logo_path).convert("RGBA")
-    logo = logo.resize((80, 80), Image.Resampling.LANCZOS)
-    logo = ImageEnhance.Color(logo).enhance(0.5)  # Reduced saturation of the logo
-    imagebox = OffsetImage(logo, zoom=1)
-    ab = AnnotationBbox(imagebox, (0.08, 0.08), frameon=False)
+    square_size = 0.08
+    ax.add_patch(Polygon([[avatar_left_position - square_size / 2, position[1] - square_size / 2], 
+                          [avatar_left_position + square_size / 2, position[1] - square_size / 2], 
+                          [avatar_left_position + square_size / 2, position[1] + square_size / 2], 
+                          [avatar_left_position - square_size / 2, position[1] + square_size / 2]], 
+                          closed=True, fill=True, edgecolor='#7D9D7D', facecolor=box_facecolor, lw=2))
     ax.add_artist(ab)
 
-    # Add the "COMMENTATORS" text at the top with a subtle shadow effect using BubblegumSans
-    add_text_with_style(ax, tournament_title, (0.5, 0.9), fontsize=42, color='#FFD700', shadow_color='gray')
+    clean_txt = clean_text(username, vcr_font)
+    ax.text(avatar_left_position + 0.05, position[1], clean_txt, fontsize=fontsize, fontweight='bold',
+            ha='left', va='center', color=glow_color, transform=ax.transAxes,
+            fontproperties=vcr_font,
+            path_effects=[patheffects.withStroke(linewidth=5, foreground=shadow_color)])
 
-    # Apple-themed color scheme for the text boxes
-    color_primary = '#FF6347'  # Apple Red for usernames
-    color_social = '#7CFC00'  # Apple Green for handles and social connections
+    ax.text(avatar_left_position + 0.05, position[1], clean_txt, fontsize=fontsize, fontweight='bold',
+            ha='left', va='center', color=color, transform=ax.transAxes,
+            fontproperties=vcr_font,
+            bbox=dict(facecolor=box_facecolor, edgecolor='#7D9D7D', boxstyle='round,pad=0.4', alpha=0.85))
 
-    positions = [(0.3, 0.60), (0.7, 0.60)]  # Adjust positions for 2 commentators
-    avatar_size = 200  # Slightly increased avatar size for prominence
+# Function to add a boxed username at the bottom of the avatar
+def add_username_with_box(ax, username, position, fontsize=34, color='#333333', glow_color='#AAAAAA', shadow_color='#222222', box_facecolor='#FFECB3'):
+    clean_txt = clean_text(username, vcr_font)
+    
+    ax.text(position[0], position[1], clean_txt, fontsize=fontsize, fontweight='bold',
+            ha='center', va='center', color=glow_color, transform=ax.transAxes,
+            fontproperties=vcr_font,
+            path_effects=[patheffects.withStroke(linewidth=4, foreground=shadow_color)],
+            bbox=dict(facecolor=box_facecolor, edgecolor='none', boxstyle='round,pad=0.5', alpha=0.85))
+    
+    ax.text(position[0], position[1], clean_txt, fontsize=fontsize, fontweight='bold',
+            ha='center', va='center', color=color, transform=ax.transAxes,
+            fontproperties=vcr_font)
 
-    frames_to_save = []  # To store frames for the GIF
+# Function to add glow effect to text without a box around it
+def add_text_with_glow(ax, text, position, fontsize=48, color='#333333', glow_color='#AAAAAA', shadow_color='#222222'):
+    clean_txt = clean_text(text, vcr_font)
+    
+    ax.text(position[0], position[1], clean_txt, fontsize=fontsize, fontweight='bold',
+            ha='center', va='center', color=glow_color, transform=ax.transAxes,
+            fontproperties=vcr_font,
+            path_effects=[patheffects.withStroke(linewidth=4, foreground=shadow_color)])
+    
+    ax.text(position[0], position[1], clean_txt, fontsize=fontsize, fontweight='bold',
+            ha='center', va='center', color=color, transform=ax.transAxes,
+            fontproperties=vcr_font)
+
+def rounded_avatar_with_shadow(img, size, shadow_offset=(10, 10), shadow_color=(0, 0, 0, 100)):
+    img = img.resize((size, size), Image.Resampling.LANCZOS)
+    mask = Image.new('L', (size, size), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.rounded_rectangle([0, 0, size, size], radius=50, fill=255)
+
+    rounded_avatar = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    rounded_avatar.paste(img, (0, 0), mask=mask)
+
+    shadow = Image.new('RGBA', (size + abs(shadow_offset[0]), size + abs(shadow_offset[1])), (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    shadow_draw.rounded_rectangle([abs(shadow_offset[0]), abs(shadow_offset[1]), size, size], radius=50, fill=shadow_color)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=12))
+    shadow.paste(rounded_avatar, (0, 0), mask=rounded_avatar.split()[3])
+    return shadow
+
+def draw_polished_border(ax):
+    border_thickness = 5
+    rounded_rect = plt.Rectangle((0.05, 0.05), 0.90, 0.82, fill=False, 
+                                 edgecolor='#FFD700', linewidth=border_thickness,
+                                 linestyle='-', zorder=1)
+    ax.add_patch(rounded_rect)
+
+    shadow_rect = plt.Rectangle((0.055, 0.045), 0.90, 0.82, fill=False,
+                                edgecolor='#FFA500', linewidth=border_thickness + 2, 
+                                alpha=0.3, zorder=0)
+    ax.add_patch(shadow_rect)
+
+def add_logo(ax, logo_path):
+    logo = Image.open(logo_path).convert("RGBA")
+    logo = logo.resize((80, 80), Image.Resampling.LANCZOS)
+    imagebox = OffsetImage(logo, zoom=1)
+    ab = AnnotationBbox(imagebox, (0.97, 0.92), frameon=False, xycoords='axes fraction')
+    ax.add_artist(ab)
+
+def create_commentary_scene(user_ids, logo_path, gif_path, tournament_title="COMMENTATORS"):
+    gif = Image.open(gif_path)
+    static_background = gif.convert("RGBA")
+
+    fig_width, fig_height = 19.2, 10.8
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_aspect('equal')
+    ax.axis('off')
+
+    ax.imshow(static_background, extent=[0, 1, 0, 1], aspect='auto')
+    draw_polished_border(ax)
+    add_logo(ax, logo_path)
+
+    add_text_with_glow(ax, tournament_title, (0.5, 0.94), fontsize=48, color='#333333')
+
+    positions = [(0.25, 0.60), (0.75, 0.60)]
+    avatar_size = 270
 
     for i, user_id in enumerate(user_ids):
         user_data = fetch_tetrio_user_data(user_id)
-        
-        if user_data:
-            avatar_url = get_avatar_url(user_data)
-        else:
-            avatar_url = 'assets/apple.png'  # Local fallback avatar if no avatar is present
+        avatar_url = get_avatar_url(user_data) if user_data else 'assets/apple.png'
 
         try:
             avatar_response = requests.get(avatar_url, stream=True)
             avatar_img = Image.open(BytesIO(avatar_response.content)).convert("RGBA")
         except Exception:
-            avatar_img = Image.open('assets/apple.png')  # Fallback in case of failure
+            avatar_img = Image.open('assets/apple.png')
 
-        diamond_avatar_img = diamond_avatar_with_border(avatar_img, avatar_size, border_thickness=5, outer_padding=20)
-        imagebox = OffsetImage(diamond_avatar_img, zoom=1)
+        rounded_avatar_img = rounded_avatar_with_shadow(avatar_img, avatar_size, shadow_offset=(10, 10), shadow_color=(0, 0, 0, 128))
+        imagebox = OffsetImage(rounded_avatar_img, zoom=1)
         ab = AnnotationBbox(imagebox, positions[i], frameon=False)
         ax.add_artist(ab)
 
         if user_data:
             socials = get_social_connections(user_data)
-            username = user_data['username']  
+            username = user_data['username'].upper()
         else:
             socials = []
-            username = f"User{i+1}"
+            username = f"USER{i+1}"
 
-        # Add text boxes for username, with consistent spacing between the username and socials
-        add_text_with_style(ax, username, (positions[i][0], 0.35), fontsize=26, color='white', shadow_color='black', box_facecolor=color_primary)
+        # Add the username with a box below the avatar
+        add_username_with_box(ax, username, (positions[i][0], 0.43), fontsize=34, color='#333333')
 
-        # Display socials (including handle), limit to 3
-        max_socials = min(len(socials), 3)  # Cap socials to a maximum of 3
-        for j in range(max_socials):
-            social_position = 0.27 - (0.07 * j)  # Move socials up for better alignment
-            add_text_with_style(ax, socials[j], (positions[i][0], social_position), fontsize=20, color='white', shadow_color='black', box_facecolor=color_social)
+        social_box_background = '#A2D9A2'
+        for j, (logo, social_username) in enumerate(socials):
+            social_position = (positions[i][0], 0.32 - (0.09 * j))
+            add_social_icon_and_text(ax, logo, social_username, social_position, positions[i][0], fontsize=24,
+                                     icon_size=0.25, color='#333333', glow_color='#444444',
+                                     shadow_color='#111111', box_facecolor=social_box_background)
 
-    # Capture frames for the GIF
-    for frame in gif_frames:
-        img.set_data(frame)
-        plt.draw()
-        plt.pause(0.1)  # Pause to allow the image to update
-        # Save the current figure to a temporary file
-        temp_file = BytesIO()
-        plt.savefig(temp_file, format='png', bbox_inches='tight', pad_inches=0)
-        temp_file.seek(0)
-        frames_to_save.append(Image.open(temp_file).convert("RGBA"))
+    output_image_path = os.path.join("scenes", "commentary_scene.png")
+    plt.savefig(output_image_path, bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
 
-    # Create a GIF from the frames
-    output_gif_path = os.path.join("scenes", "commentary_scene.gif")
-    frames_to_save[0].save(output_gif_path, save_all=True, append_images=frames_to_save[1:], optimize=False, duration=100, loop=0)
+user_ids = ["5ec684620cfca96246aa9bda", "5f3718f11fee2b2e8c27d55f"]
+logo_path = 'assets/tournament_logo.png'
+gif_path = 'assets/bg.gif'
 
-    plt.show()
-
-# Example inputs with real TETR.IO user IDs
-user_ids = ["5ec684620cfca96246aa9bda", "5f3718f11fee2b2e8c27d55f"]  
-logo_path = 'assets/apple.png'  
-gif_path = 'assets/bg.gif'  
-
-# Call the function to generate the commentary screen
 create_commentary_scene(user_ids, logo_path, gif_path)

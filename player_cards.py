@@ -10,8 +10,15 @@ def draw_text_with_shadow(draw, text, position, font, text_color=(255, 255, 255)
     # Draw actual text
     draw.text((x, y), text, font=font, fill=text_color)
 
+# Function to create a mask for rounded rectangle borders
+def create_rounded_rectangle_mask(width, height, radius, margin=5):
+    mask = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.rounded_rectangle([margin, margin, width-margin, height-margin], fill=255, radius=radius)
+    return mask
+
 # Define the function to create a player card
-def create_player_card(user_id, seed_value):
+def create_player_card(user_id, seed_value, flavour_text="[EX] Ability: 6-3"):
     avatar_revision = "0"
     apple_texture_path = "assets/apple.png"  # Updated path to apple texture
 
@@ -78,10 +85,13 @@ def create_player_card(user_id, seed_value):
     width, height = 400, 700
     card = Image.new('RGBA', (width, height), (255, 255, 255, 255))  # Solid white background to block GIF
 
+    # Create a mask to prevent content from spilling out of the rounded corners
+    rounded_mask = create_rounded_rectangle_mask(width, height, radius=15)
+
     # Apply apple pattern on the card background
     apple_texture = Image.open(apple_texture_path).convert("RGBA")
     apple_texture = apple_texture.resize((100, 100))  # Resize the apple texture
-    apple_texture = ImageOps.colorize(apple_texture.convert('L'), (255, 224, 102), (255, 229, 153))  # Softer yellow apple color
+    apple_texture = ImageOps.colorize(apple_texture.convert('L'), (244, 208, 63), (255, 229, 153))  # Softer yellow apple color
     apple_texture.putalpha(120)  # Maintain transparency for the pattern
 
     # Apply apple texture in a diagonal pattern, filling the whole card
@@ -92,99 +102,170 @@ def create_player_card(user_id, seed_value):
             card.paste(apple_texture, (x_offset, j), apple_texture)
 
     # Load fonts (adjust paths for your system)
-    font_path = "assets/BubblegumSans-Regular.ttf"
+    font_path = r"assets\VCR_OSD_MONO_1.001[1].ttf"
     try:
         font_large = ImageFont.truetype(font_path, 36)  # Boldened username font
-        font_medium = ImageFont.truetype(font_path, 25)  # Boldened rank and TR font
-        font_small = ImageFont.truetype(font_path, 18)     # Small font for additional details
+        font_medium = ImageFont.truetype(font_path, 22)  # Boldened rank and TR font
+        font_small = ImageFont.truetype(font_path, 16)   # Small font for additional details
+        font_tiny = ImageFont.truetype(font_path, 12)    # Smaller font for TR text
         font_bold = ImageFont.truetype(font_path, 30)    # Bold font for title
     except IOError:
         font_large = ImageFont.load_default()
         font_medium = ImageFont.load_default()
         font_small = ImageFont.load_default()
+        font_tiny = ImageFont.load_default()  # Fallback to default if loading fails
         font_bold = ImageFont.load_default()
 
     draw = ImageDraw.Draw(card)
 
-    # Add smoother border around the card (darker orange for outer border)
-    outer_border_color = (255, 140, 0)  # Darker orange for the card border
-    draw.rounded_rectangle([0, 0, width-1, height-1], outline=outer_border_color, width=10, radius=15)
+    # Rounded rectangle for the username inside the top section
+    nameplate_y = 5
+    nameplate_height = 50
+    nameplate_radius = 20
+    tr_rect_y = nameplate_y
+    tr_rect_x = width - 120
+    tr_rect_width = width
+    
+    # Draw the rectangular area for the TR and Rank
+    draw.rounded_rectangle([tr_rect_x, tr_rect_y, tr_rect_width, tr_rect_y + nameplate_height], fill=(255, 224, 130, 255), radius=nameplate_radius)  # Softer yellow background
+    
+    # Rounded rectangle for the username inside the top section
+    draw.rounded_rectangle([5, nameplate_y, width - 105, nameplate_y + nameplate_height], fill=(244, 208, 63, 255), radius=nameplate_radius)  # Softer gold background for username
+    
+    # Positioning for username inside the rounded rectangle
+    username_x = 15
+    draw_text_with_shadow(draw, username, (username_x, nameplate_y + 10), font=font_large, text_color=(0, 0, 0))
 
-    # Center align the combination of username and flag with shadow
-    username_bbox = draw.textbbox((0, 0), username, font=font_large)
-    username_width = username_bbox[2] - username_bbox[0]
-    flag_width = 40
-    total_width = username_width + flag_width + 10
-    username_flag_x = (width - total_width) // 2
-    draw_text_with_shadow(draw, username, (username_flag_x, 50), font=font_large, text_color=(255, 128, 34))
-    flag_img = flag_img.resize((40, 30))
-    card.paste(flag_img, (username_flag_x + username_width + 10, 55), flag_img)
+    # Adjust TR and rank values to align with the username without being too low
+    tr_label = "TR"
+    tr_value_str = str(tr)
+    tr_x = width - 100
+    tr_y = nameplate_y + 20  # Adjust for correct alignment with username
 
-    # Add avatar with softer orange border and shadow
-    avatar_size = 220
-    avatar_x = (width - avatar_size) // 2
-    avatar_y = 100
-    avatar_img = avatar_img.resize((avatar_size, avatar_size))
-    card.paste(avatar_img, (avatar_x, avatar_y), avatar_img)
-    avatar_border_color = (255, 165, 0)  # Softer orange for avatar border
-    border_offset = 8  # Thicker avatar border
-    draw.rounded_rectangle([avatar_x - border_offset, avatar_y - border_offset, avatar_x + avatar_size + border_offset, avatar_y + avatar_size + border_offset], outline=avatar_border_color, width=border_offset, radius=10)
+    # Draw the "TR" label in tiny font
+    draw_text_with_shadow(draw, tr_label, (tr_x, tr_y), font=font_tiny, text_color=(0, 0, 0), shadow_offset=0)
 
-    # Add Rank image and TR
-    rank_img_size = 70
+    # Draw the TR value next to the "TR" label, using the small font
+    tr_value_x = tr_x + 15  # Adjust the position based on the width of the tiny "TR" text
+    draw_text_with_shadow(draw, tr_value_str, (tr_value_x, tr_y), font=font_small, text_color=(0, 0, 0), shadow_offset=0)
+
+    # Add Rank image next to the TR value (correctly positioned and aligned)
+    rank_img_size = 25
     rank_img = rank_img.resize((rank_img_size, rank_img_size))
-    rank_img_x = (width // 2) - 160 + 10
-    rank_y = avatar_y + avatar_size
-    rank_img_y = rank_y + 5
-    card.paste(rank_img, (rank_img_x, rank_img_y), rank_img)
+    rank_img_y = nameplate_y + 10  # Adjust for correct alignment with TR value
+    card.paste(rank_img, (tr_value_x + 45, rank_img_y), rank_img)
 
-    tr_string = f"{tr}TR"
-    tr_number_x = rank_img_x + rank_img_size + 20
-    tr_number_y = rank_img_y + 15
-    draw_text_with_shadow(draw, tr_string, (tr_number_x, tr_number_y), font=font_large, text_color=(255, 255, 255))
+    # Increase avatar size and adjust the position
+    avatar_size = 320  # Keeping the avatar square
+    avatar_x = (width - avatar_size) // 2  # Center the avatar horizontally
+    avatar_y = nameplate_y + nameplate_height + 10  # Vertical position stays the same
 
-    # Add the seed text with margin and a thickened border (draw it later so it's on top)
-    seed_text = f"Seed: #{seed_value}"
-    seed_rect_y = rank_y + 80
-    seed_rect_height = 60
+    # Increase the avatar border size horizontally but keep the avatar square
+    avatar_img = avatar_img.resize((avatar_size, avatar_size))  # Ensuring the avatar stays square
+    card.paste(avatar_img, (avatar_x, avatar_y), avatar_img)
+
+    # Define padding to create the rectangular border while keeping the square avatar
+    padding_width = 40  # Padding on the left and right sides to make the border rectangular
+    padding_height = 12  # Padding above and below the avatar
+    avatar_border_color = (255, 183, 77)  # Softer orange for avatar border
+
+    avatar_border_size = 255
+    avatar_border_x = (width - avatar_border_size) // 2
+
+    draw.rounded_rectangle(
+        [avatar_border_x - padding_width, avatar_y - padding_height, avatar_border_x + avatar_border_size + padding_width, avatar_y + avatar_size + padding_height],
+        outline=avatar_border_color, width=12, radius=10
+    )
+
+    # Add a rectangle for the stats and Seed section at the bottom of the card
+    draw.rectangle([10, avatar_y + avatar_size + 20, width - 10, height - 10], fill=(44, 44, 44, 255))  # Darker grey background
+
+    # Seed section (Left-aligned seed text and bottom-aligned flavour text)
+    seed_text = f"Seed #{seed_value}"
+    seed_rect_y = avatar_y + avatar_size + 10
+    seed_rect_height = 40
     seed_margin = 10  # Add margin away from card border
-    seed_rect_radius = 20
+    seed_rect_radius = 0
     seed_rect_border_thickness = 5  # Thicker border for the seed rectangle
 
-    # Draw the stats background first (so the seed goes on top)
-    draw.rectangle([10, rank_y + 130, width - 10, height - 10], fill=(50, 50, 50, 255))  # Solid dark gray background
+    # Draw seed rectangle and text
+    draw.rounded_rectangle([seed_margin, seed_rect_y, width-seed_margin, seed_rect_y + seed_rect_height], fill=(244, 208, 63, 255), outline=(255, 165, 0), width=seed_rect_border_thickness, radius=seed_rect_radius)
 
+    # Left-aligned Seed text
+    draw_text_with_shadow(draw, seed_text, (seed_margin + 10, seed_rect_y + 5), font=font_bold)
+
+    # Adjust flavour text so it's aligned properly without moving too low
+    flavour_bbox = draw.textbbox((0, 0), flavour_text, font=font_small)
+    flavour_x = width - flavour_bbox[2] - seed_margin - 10  # Right-align the flavour text
+    flavour_y = seed_rect_y + seed_rect_height - 25  # Adjust for correct bottom-alignment
+    draw_text_with_shadow(draw, flavour_text, (flavour_x, flavour_y), font=font_small)
+
+    # Stats section
     stats = {
-        "PPS": {"value": pps, "color": (255, 165, 0), "max": 5},   # Orange for PPS
-        "APM": {"value": apm, "color": (255, 215, 0), "max": 250}, # Gold for APM
-        "VS": {"value": vs, "color": (255, 140, 0), "max": 450},   # Darker orange for VS
-        "AR": {"value": ar, "color": (255, 69, 0), "max": 450}     # Red-orange for AR
+        "PPS": {"value": pps, "max": 5, "color": (255, 183, 77)},  # Softer orange for PPS
+        "APM": {"value": apm, "max": 250, "color": (255, 215, 0)}, # Gold for APM
+        "VS": {"value": vs, "max": 450, "color": (255, 140, 0)},   # Darker orange for VS
+        "AR": {"value": ar, "max": 450, "color": (255, 69, 0)}     # Red-orange for AR
     }
 
-    def draw_dotted_bars(draw, start_x, start_y, stat_value, max_value, stat_type, display_value):
+    # Modified draw_dotted_bars function with a rounded rectangle around the dots
+    def draw_dotted_bars(draw, start_x, start_y, stat_value, max_value, color):
         total_dots = 20
         filled_dots = min(round((stat_value / max_value) * total_dots), total_dots)
-        dot_spacing = 10
+        dot_spacing = 14
         dot_size = 5
-        # Change the dot colors based on the stats dictionary
-        dot_color = stats[stat_type]["color"]
+
+        # Calculate the full width and height of the dotted bar area
+        total_width = total_dots * dot_spacing + dot_size
+        bar_height = dot_size + 10  # Adjust the height of the rectangle around the dots
+
+        # Draw a rounded rectangle around the dotted bar area
+        background_color = (60, 60, 60, 255)  # Darker grey background color for the dots
+        border_radius = 10
+        draw.rounded_rectangle([start_x - 5, start_y - 5, start_x + total_width + 5, start_y + bar_height], fill=background_color, radius=border_radius)
+
+        # Now draw the dots on top of the rounded rectangle
         for i in range(total_dots):
-            color = dot_color if i < filled_dots else (255, 255, 255)
-            draw.ellipse([start_x + i * dot_spacing, start_y, start_x + dot_size + i * dot_spacing, start_y + dot_size], fill=color)
-        value_x = start_x + total_dots * dot_spacing + 10
-        draw_text_with_shadow(draw, str(display_value), (value_x, start_y - dot_size), font=font_small)
+            dot_color = color if i < filled_dots else (255, 255, 255)
+            draw.ellipse([start_x + i * dot_spacing, start_y, start_x + dot_size + i * dot_spacing, start_y + dot_size], fill=dot_color)
 
     # Draw the stats with improved readability
-    y_offset = rank_y + 150
+    y_offset = seed_rect_y + seed_rect_height + 43
     for stat, info in stats.items():
-        draw_text_with_shadow(draw, f"{stat}", (20, y_offset), font=font_medium, text_color=(255, 255, 255))
-        draw_dotted_bars(draw, start_x=120, start_y=y_offset + 10, stat_value=info["value"], max_value=info["max"], stat_type=stat, display_value=info["value"])
+        stat_text_y = y_offset
+        stat_value_y = y_offset
+        stat_value_width = 60  # Adjust for rounded rectangle width around the value
+        
+        # Draw rounded rectangles for stat names
+        stat_rect_width = 60
+        stat_rect_height = 40
+        draw.rounded_rectangle([20, stat_text_y - 35, 20 + stat_rect_width, stat_text_y + stat_rect_height - 35], fill=(100, 100, 100, 255), radius=10)
+
+        # Center-align the stat name within the rectangle
+        stat_text_bbox = draw.textbbox((0, 0), f"{stat}", font=font_medium)
+        stat_text_x = 20 + (stat_rect_width - (stat_text_bbox[2] - stat_text_bbox[0])) // 2
+        stat_text_y_centered = stat_text_y - 30
+        draw_text_with_shadow(draw, f"{stat}", (stat_text_x, stat_text_y_centered), font=font_medium, text_color=(255, 255, 255))
+
+        # Draw the dotted bars
+        draw_dotted_bars(draw, start_x=40, start_y=y_offset + 10, stat_value=info["value"], max_value=info["max"], color=info["color"])
+
+        # Draw rounded rectangles for stat values (shifted 4 pixels to the right)
+        draw.rounded_rectangle([width - stat_value_width - 26, stat_value_y - 15, width - 28, stat_value_y + stat_rect_height - 15], fill=(60, 60, 60, 255), radius=10)
+
+        # Center-align the stat value inside the rectangle
+        stat_value_text_bbox = draw.textbbox((0, 0), f"{info['value']}", font=font_medium)
+        stat_value_x = width - stat_value_width - 28 + (stat_value_width - (stat_value_text_bbox[2] - stat_value_text_bbox[0])) // 2
+        stat_value_y_centered = stat_value_y - 7
+        draw_text_with_shadow(draw, f"{info['value']}", (stat_value_x, stat_value_y_centered), font=font_medium, text_color=(255, 255, 255))
+        
         y_offset += 60
 
-    # Finally, draw the seed rectangle and text on top
-    draw.rounded_rectangle([seed_margin, seed_rect_y, width-seed_margin, seed_rect_y + seed_rect_height], fill=(255, 224, 102, 255), outline=(255, 165, 0), width=seed_rect_border_thickness, radius=seed_rect_radius)
-    seed_bbox = draw.textbbox((0, 0), seed_text, font=font_medium)
-    seed_width = seed_bbox[2] - seed_bbox[0]
-    draw_text_with_shadow(draw, seed_text, ((width - seed_width) // 2, seed_rect_y + 15), font=font_bold)
+    # Add smoother border around the card (darker orange for outer border)
+    outer_border_color = (255, 152, 0)  # Muted orange for the card border
+    draw.rounded_rectangle([0, 0, width-1, height-1], outline=outer_border_color, width=10, radius=15)
+
+    # Apply the mask to prevent any content outside the rounded rectangle
+    card.putalpha(rounded_mask)
 
     return card

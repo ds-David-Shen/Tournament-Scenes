@@ -37,4 +37,4 @@ python versus.py
 ```bash
 python commentary.py
 ```
-![Commentary Scene](scenes/commentary_scene.png)
+![Commentary Scene](scenes/commentary_scene.gif)

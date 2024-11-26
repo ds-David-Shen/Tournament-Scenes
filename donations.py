@@ -20,7 +20,7 @@ comment_font = ImageFont.truetype(font_path, 24)
 
 # Define scrolling area properties
 entry_height = 110  # Height per donor entry
-scroll_speed = 2  # Pixels to move per frame
+scroll_speed = 6  # Pixels to move per frame
 
 # Function to wrap text based on pixel width
 def wrap_text(text, font, max_width, draw):

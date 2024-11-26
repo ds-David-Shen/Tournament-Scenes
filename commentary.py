@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Polygon
-from PIL import Image, ImageDraw, ImageFilter, ImageSequence
+from PIL import Image, ImageSequence
 from io import BytesIO
 import matplotlib.animation as animation
 from matplotlib.font_manager import FontProperties

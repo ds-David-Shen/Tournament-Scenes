@@ -1,6 +1,7 @@
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from io import BytesIO
+from headers import HEADERS
 
 # Function to add text with a shadow for better readability
 def draw_text_with_shadow(draw, text, position, font, text_color=(255, 255, 255), shadow_color=(0, 0, 0), shadow_offset=2):
@@ -26,7 +27,7 @@ def create_player_card(user_id, seed_value, flavour_text="[EX] Ability: 6-3"):
     avatar_url = f"https://tetr.io/user-content/avatars/{user_id}.jpg?rv={avatar_revision}"
 
     # Get the user info (to fetch the username and AR)
-    response_user_info = requests.get(user_info_url)
+    response_user_info = requests.get(user_info_url, headers=HEADERS)
     if response_user_info.status_code == 200:
         user_data = response_user_info.json()
         if user_data['success']:
@@ -41,7 +42,7 @@ def create_player_card(user_id, seed_value, flavour_text="[EX] Ability: 6-3"):
         ar = "Error"
 
     # Get the TETRA LEAGUE stats
-    response_league = requests.get(league_summary_url)
+    response_league = requests.get(league_summary_url, headers=HEADERS)
     if response_league.status_code == 200:
         data = response_league.json()
         if data['success']:
@@ -59,7 +60,7 @@ def create_player_card(user_id, seed_value, flavour_text="[EX] Ability: 6-3"):
 
     # Fetch avatar image
     try:
-        avatar_response = requests.get(avatar_url)
+        avatar_response = requests.get(avatar_url, headers=HEADERS)
         avatar_response.raise_for_status()
         avatar_img = Image.open(BytesIO(avatar_response.content)).convert("RGBA")
     except (requests.exceptions.HTTPError, requests.exceptions.RequestException):
@@ -67,7 +68,7 @@ def create_player_card(user_id, seed_value, flavour_text="[EX] Ability: 6-3"):
 
     # Fetch rank image
     rank_url = f"https://tetr.io/res/league-ranks/{rank}.png"
-    rank_response = requests.get(rank_url)
+    rank_response = requests.get(rank_url, headers=HEADERS)
     rank_img = Image.open(BytesIO(rank_response.content)).convert("RGBA")
 
     # Create the card with an opaque background

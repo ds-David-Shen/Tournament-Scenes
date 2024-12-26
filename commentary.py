@@ -9,6 +9,7 @@ from matplotlib import patheffects
 import os
 import requests
 import json
+from headers import HEADERS
 
 # Load VCR_OSD_MONO font
 vcr_font = FontProperties(fname=r"assets/VCR_OSD_MONO_1.001[1].ttf")
@@ -35,7 +36,7 @@ def fetch_cached_user_data(user_id):
         return avatar_cache[user_id]
     
     api_url = f"https://ch.tetr.io/api/users/{user_id}"
-    response = requests.get(api_url)
+    response = requests.get(api_url, headers=HEADERS)
     if response.status_code == 200 and response.json().get('success'):
         user_data = response.json().get('data')
         avatar_url = f"https://tetr.io/user-content/avatars/{user_data['_id']}.jpg?rv=0"
@@ -46,7 +47,7 @@ def fetch_cached_user_data(user_id):
 # Load avatar image from URL or fallback
 def load_avatar_image(avatar_url):
     try:
-        response = requests.get(avatar_url, stream=True)
+        response = requests.get(avatar_url, stream=True, headers=HEADERS)
         avatar_img = Image.open(BytesIO(response.content)).convert("RGBA")
     except Exception:
         avatar_img = Image.open('assets/apple.png')
